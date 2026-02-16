@@ -11,7 +11,7 @@ if true then return {} end
 return {
   -- add gruvbox
   { "ellisonleao/gruvbox.nvim" },
-
+  { "akinsho/bufferline.nvim", enabled = false },
   -- Configure LazyVim to load gruvbox
   {
     "LazyVim/LazyVim",
