@@ -3,7 +3,7 @@
 -- d any additional keymaps here
 --
 --
-vim.api.nvim_set_keymap("i", "jj", "<Esc>", { noremap = false })
+vim.api.nvim_set_keymap("i", "kk", "<Esc>", { noremap = false })
 vim.keymap.set("i", "jj", "<Esc>", { desc = "Exit insert mode" })
 
 local map = vim.keymap.set
