@@ -41,3 +41,6 @@ vim.keymap.set("i", "<C-l>", function()
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Right>", true, false, true), "n", true)
   end
 end, { desc = "Jump to next closing delimiter" })
+
+vim.keymap.set("n", "<C-d>", "<C-d>zz", { desc = "Scroll down and center" })
+vim.keymap.set("n", "<C-u>", "<C-u>zz", { desc = "Scroll up and center" })
