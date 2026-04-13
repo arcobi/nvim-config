@@ -3,7 +3,7 @@
 -- d any additional keymaps here
 --
 --
-vim.api.nvim_set_keymap("i", "kk", "<Esc>", { noremap = false })
+vim.api.nvim_set_keymap("i", "kk", "<Esc>", { noremap = true })
 vim.keymap.set("i", "jj", "<Esc>", { desc = "Exit insert mode" })
 
 local map = vim.keymap.set
@@ -42,5 +42,4 @@ vim.keymap.set("i", "<C-l>", function()
   end
 end, { desc = "Jump to next closing delimiter" })
 
-vim.keymap.set("n", "<C-d>", "<C-d>zz", { desc = "Scroll down and center" })
-vim.keymap.set("n", "<C-u>", "<C-u>zz", { desc = "Scroll up and center" })
+vim.keymap.set("n", "<CR>", "o<Esc>", { desc = "Add line below without leaving normal mode" })
