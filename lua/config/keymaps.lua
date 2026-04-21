@@ -43,3 +43,6 @@ vim.keymap.set("i", "<C-l>", function()
 end, { desc = "Jump to next closing delimiter" })
 
 vim.keymap.set("n", "<CR>", "o<Esc>", { desc = "Add line below without leaving normal mode" })
+
+map({ "n", "v", "x" }, "<C-d>", "<C-d>zz", { desc = "Scroll down and center" })
+map({ "n", "v", "x" }, "<C-u>", "<C-u>zz", { desc = "Scroll up and center" })
