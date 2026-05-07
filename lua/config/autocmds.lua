@@ -12,3 +12,17 @@ vim.api.nvim_create_autocmd("ColorScheme", {
     end
   end,
 })
+
+local function hide_tabline()
+  vim.opt.showtabline = 0
+  vim.opt.tabline = ""
+end
+
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = hide_tabline,
+})
+
+vim.api.nvim_create_autocmd("User", {
+  pattern = "VeryLazy",
+  callback = hide_tabline,
+})

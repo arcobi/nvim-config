@@ -58,11 +58,54 @@ local function build_clangd_cmd(root)
   return cmd
 end
 
+local function only_error_diagnostics(err, result, ctx, config)
+  if not result or not result.diagnostics then
+    return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
+  end
+
+  result.diagnostics = vim.tbl_filter(function(diagnostic)
+    return diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error
+  end, result.diagnostics)
+
+  return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
+end
+
 return {
   {
     "neovim/nvim-lspconfig",
     opts = function(_, opts)
+      vim.lsp.handlers["textDocument/publishDiagnostics"] = only_error_diagnostics
+
+      opts.diagnostics = vim.tbl_deep_extend("force", opts.diagnostics or {}, {
+        virtual_text = { severity = vim.diagnostic.severity.ERROR },
+        signs = { severity = vim.diagnostic.severity.ERROR },
+        underline = { severity = vim.diagnostic.severity.ERROR },
+        float = { severity = vim.diagnostic.severity.ERROR },
+      })
+
+      opts.setup = opts.setup or {}
+      local setup = opts.setup["*"]
+      opts.setup["*"] = function(server, server_opts)
+        server_opts.handlers = vim.tbl_deep_extend("force", server_opts.handlers or {}, {
+          ["textDocument/publishDiagnostics"] = only_error_diagnostics,
+        })
+
+        if setup then
+          return setup(server, server_opts)
+        end
+      end
+
       opts.servers = opts.servers or {}
+
+      opts.servers.ruff = vim.tbl_deep_extend("force", opts.servers.ruff or {}, {
+        init_options = {
+          settings = {
+            lint = {
+              ignore = { "E402", "F401" },
+            },
+          },
+        },
+      })
 
       opts.servers.pyright = {
         settings = {
