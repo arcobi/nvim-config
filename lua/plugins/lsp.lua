@@ -58,13 +58,27 @@ local function build_clangd_cmd(root)
   return cmd
 end
 
-local function only_error_diagnostics(err, result, ctx, config)
+local function is_performance_diagnostic(diagnostic)
+  local source = tostring(diagnostic.source or ""):lower()
+  local code = diagnostic.code
+  if type(code) == "table" then
+    code = code.value or code.target
+  end
+
+  code = tostring(code or "")
+  local message = tostring(diagnostic.message or "")
+
+  return source:find("clang%-tidy", 1, false)
+    and (code:match("^performance%-") ~= nil or message:find("%[performance%-") ~= nil)
+end
+
+local function filtered_diagnostics(err, result, ctx, config)
   if not result or not result.diagnostics then
     return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
   end
 
   result.diagnostics = vim.tbl_filter(function(diagnostic)
-    return diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error
+    return diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error or is_performance_diagnostic(diagnostic)
   end, result.diagnostics)
 
   return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
@@ -74,20 +88,20 @@ return {
   {
     "neovim/nvim-lspconfig",
     opts = function(_, opts)
-      vim.lsp.handlers["textDocument/publishDiagnostics"] = only_error_diagnostics
+      vim.lsp.handlers["textDocument/publishDiagnostics"] = filtered_diagnostics
 
       opts.diagnostics = vim.tbl_deep_extend("force", opts.diagnostics or {}, {
-        virtual_text = { severity = vim.diagnostic.severity.ERROR },
-        signs = { severity = vim.diagnostic.severity.ERROR },
-        underline = { severity = vim.diagnostic.severity.ERROR },
-        float = { severity = vim.diagnostic.severity.ERROR },
+        virtual_text = { severity = { min = vim.diagnostic.severity.WARN } },
+        signs = { severity = { min = vim.diagnostic.severity.WARN } },
+        underline = { severity = { min = vim.diagnostic.severity.WARN } },
+        float = { severity = { min = vim.diagnostic.severity.WARN } },
       })
 
       opts.setup = opts.setup or {}
       local setup = opts.setup["*"]
       opts.setup["*"] = function(server, server_opts)
         server_opts.handlers = vim.tbl_deep_extend("force", server_opts.handlers or {}, {
-          ["textDocument/publishDiagnostics"] = only_error_diagnostics,
+          ["textDocument/publishDiagnostics"] = filtered_diagnostics,
         })
 
         if setup then
