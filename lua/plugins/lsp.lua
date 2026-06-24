@@ -72,13 +72,46 @@ local function is_performance_diagnostic(diagnostic)
     and (code:match("^performance%-") ~= nil or message:find("%[performance%-") ~= nil)
 end
 
+local function diagnostic_code(diagnostic)
+  local code = diagnostic.code
+  if type(code) == "table" then
+    code = code.value or code.target
+  end
+
+  return tostring(code or "")
+end
+
+local function is_line_length_diagnostic(diagnostic, bufnr)
+  local filetype = vim.bo[bufnr].filetype
+  local source = tostring(diagnostic.source or ""):lower()
+  local code = diagnostic_code(diagnostic)
+  local message = tostring(diagnostic.message or ""):lower()
+
+  if filetype == "python" then
+    return code == "E501"
+      or message:find("line too long", 1, true) ~= nil
+      or (source:find("ruff", 1, true) ~= nil and message:find("line length", 1, true) ~= nil)
+  end
+
+  if vim.tbl_contains({ "c", "cpp", "objc", "objcpp", "cuda" }, filetype) then
+    return code == "readability-line-length"
+      or message:find("line length", 1, true) ~= nil
+      or message:find("line is longer than", 1, true) ~= nil
+      or message:find("exceeds maximum line length", 1, true) ~= nil
+  end
+
+  return false
+end
+
 local function filtered_diagnostics(err, result, ctx, config)
   if not result or not result.diagnostics then
     return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
   end
 
+  local bufnr = ctx and ctx.bufnr or 0
   result.diagnostics = vim.tbl_filter(function(diagnostic)
-    return diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error or is_performance_diagnostic(diagnostic)
+    return not is_line_length_diagnostic(diagnostic, bufnr)
+      and (diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error or is_performance_diagnostic(diagnostic))
   end, result.diagnostics)
 
   return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
@@ -115,7 +148,7 @@ return {
         init_options = {
           settings = {
             lint = {
-              ignore = { "E402", "F401" },
+              ignore = { "E402", "E501", "F401" },
             },
           },
         },
