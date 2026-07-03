@@ -58,49 +58,16 @@ local function build_clangd_cmd(root)
   return cmd
 end
 
-local function is_performance_diagnostic(diagnostic)
-  local source = tostring(diagnostic.source or ""):lower()
-  local code = diagnostic.code
-  if type(code) == "table" then
-    code = code.value or code.target
-  end
-
-  code = tostring(code or "")
-  local message = tostring(diagnostic.message or "")
-
-  return source:find("clang%-tidy", 1, false)
-    and (code:match("^performance%-") ~= nil or message:find("%[performance%-") ~= nil)
+local function is_error_only_filetype(bufnr)
+  return vim.tbl_contains({ "python", "c", "cpp", "objc", "objcpp", "cuda" }, vim.bo[bufnr].filetype)
 end
 
-local function diagnostic_code(diagnostic)
-  local code = diagnostic.code
-  if type(code) == "table" then
-    code = code.value or code.target
-  end
-
-  return tostring(code or "")
+local function is_markdown_diagnostic(bufnr)
+  return vim.tbl_contains({ "markdown", "markdown.mdx" }, vim.bo[bufnr].filetype)
 end
 
-local function is_line_length_diagnostic(diagnostic, bufnr)
-  local filetype = vim.bo[bufnr].filetype
-  local source = tostring(diagnostic.source or ""):lower()
-  local code = diagnostic_code(diagnostic)
-  local message = tostring(diagnostic.message or ""):lower()
-
-  if filetype == "python" then
-    return code == "E501"
-      or message:find("line too long", 1, true) ~= nil
-      or (source:find("ruff", 1, true) ~= nil and message:find("line length", 1, true) ~= nil)
-  end
-
-  if vim.tbl_contains({ "c", "cpp", "objc", "objcpp", "cuda" }, filetype) then
-    return code == "readability-line-length"
-      or message:find("line length", 1, true) ~= nil
-      or message:find("line is longer than", 1, true) ~= nil
-      or message:find("exceeds maximum line length", 1, true) ~= nil
-  end
-
-  return false
+local function is_error_diagnostic(diagnostic)
+  return diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error
 end
 
 local function filtered_diagnostics(err, result, ctx, config)
@@ -109,10 +76,14 @@ local function filtered_diagnostics(err, result, ctx, config)
   end
 
   local bufnr = ctx and ctx.bufnr or 0
-  result.diagnostics = vim.tbl_filter(function(diagnostic)
-    return not is_line_length_diagnostic(diagnostic, bufnr)
-      and (diagnostic.severity == vim.lsp.protocol.DiagnosticSeverity.Error or is_performance_diagnostic(diagnostic))
-  end, result.diagnostics)
+  if is_markdown_diagnostic(bufnr) then
+    result.diagnostics = {}
+    return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
+  end
+
+  if is_error_only_filetype(bufnr) then
+    result.diagnostics = vim.tbl_filter(is_error_diagnostic, result.diagnostics)
+  end
 
   return vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
 end
@@ -124,10 +95,10 @@ return {
       vim.lsp.handlers["textDocument/publishDiagnostics"] = filtered_diagnostics
 
       opts.diagnostics = vim.tbl_deep_extend("force", opts.diagnostics or {}, {
-        virtual_text = { severity = { min = vim.diagnostic.severity.WARN } },
-        signs = { severity = { min = vim.diagnostic.severity.WARN } },
-        underline = { severity = { min = vim.diagnostic.severity.WARN } },
-        float = { severity = { min = vim.diagnostic.severity.WARN } },
+        virtual_text = { severity = { min = vim.diagnostic.severity.ERROR } },
+        signs = { severity = { min = vim.diagnostic.severity.ERROR } },
+        underline = { severity = { min = vim.diagnostic.severity.ERROR } },
+        float = { severity = { min = vim.diagnostic.severity.ERROR } },
       })
 
       opts.setup = opts.setup or {}
@@ -148,7 +119,7 @@ return {
         init_options = {
           settings = {
             lint = {
-              ignore = { "E402", "E501", "F401" },
+              ignore = { "E303", "E304", "E402", "E501", "F401", "W291", "W293", "W391" },
             },
           },
         },
